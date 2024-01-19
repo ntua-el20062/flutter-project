@@ -112,3 +112,34 @@ VALUES
     (3, 'assets/dog_cat.png', 'Its so nice to meet you!', 'https://www.akc.org/dog-breeds/german-shepherd-dog/');
 
 
+CREATE TABLE user_event (
+    id INT(11) NOT NULL AUTO_INCREMENT,
+    user_id INT(11),
+    event_id BIGINT(20) UNSIGNED,
+    PRIMARY KEY (id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (event_id) REFERENCES event(id)
+);
+
+CREATE TABLE user_likes (
+    id INT(11) NOT NULL AUTO_INCREMENT,
+    user_id INT(11),
+    post_id INT(11),
+    PRIMARY KEY (id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (post_id) REFERENCES posts(id)
+);
+
+INSERT INTO user_likes (user_id, post_id) VALUES
+(3, 1),
+(4, 1),
+(7, 1),
+(1, 5),
+(1, 2),
+(1, 1),
+(1, 6);
+
+INSERT INTO user_event (user_id, event_id) VALUES
+(1, 1),
+(1, 3);
+
