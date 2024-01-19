@@ -123,35 +123,6 @@ def get_user_friends(user_id):
             cursor.close()
         if db:
             db.close()
-
-# @app.route('/api/login', methods=['POST'])
-# def login():
-#     db, cursor = None, None
-#     try:
-#         db, cursor = get_db_cursor()
-
-#         data = request.get_json()
-#         email = data['email']
-#         password = data['password']
-
-#         # Check if the user with the given email and password exists
-#         cursor.execute('SELECT * FROM users WHERE email = %s AND password = %s', (email, password))
-#         result = cursor.fetchone()
-
-#         if result:
-#             # User exists, return success
-#             return jsonify({'message': 'Login successful'})
-#         else:
-#             # User not found, return error
-#             return jsonify({'error': 'Invalid credentials'}), 401
-#     except Exception as e:
-#         print('Error during login:', e)
-#         return jsonify({'error': 'Internal Server Error'}), 500
-#     finally:
-#         if cursor:
-#             cursor.close()
-#         if db:
-#             db.close()
             
 @app.route('/api/login', methods=['POST'])
 def login():
@@ -308,72 +279,6 @@ def create_comment(post_id):
             cursor.close()
         if db:
             db.close()
-
-
-
-
-
-# UPLOAD_FOLDER = 'C:\Users\User\Desktop'
-# ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-
-# app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-
-# # Helper function to check if the file extension is allowed
-# def allowed_file(filename):
-#     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-# @app.route('/api/create-post/<int:user_id>', methods=['POST'])
-# def create_post(user_id):
-#     try:
-#         if not user_id:
-#             return jsonify({'error': 'User not authenticated'}), 401
-
-#         # Check if the request contains the required data
-#         if 'image' not in request.files or 'location' not in request.form:
-#             return jsonify({'error': 'Missing image or location data'}), 400
-
-#         image_file = request.files['image']
-
-#         # Check if the file is allowed
-#         if image_file and allowed_file(image_file.filename):
-#             # Save the image with a secure filename
-#             filename = secure_filename(image_file.filename)
-#             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-#             image_file.save(filepath)
-
-#             # Get the location from the form data
-#             location = request.form['location']
-
-#             # Insert the post into the database
-#             db, cursor = None, None
-#             try:
-#                 db = pymysql.connect(host=DB_HOST, user=DB_USER, password=DB_PASSWORD, database=DB_NAME)
-#                 cursor = db.cursor()
-
-#                 # Insert post data into the 'posts' table
-#                 cursor.execute("INSERT INTO posts (image_path, location, user_id) VALUES (%s, %s, %s)",
-#                                (filepath, location, user_id))
-
-#                 db.commit()
-
-#                 return jsonify({'message': 'Post created successfully'}), 201
-
-#             except Exception as e:
-#                 print('Error creating post:', e)
-#                 return jsonify({'error': 'Internal Server Error'}), 500
-
-#             finally:
-#                 if cursor:
-#                     cursor.close()
-#                 if db:
-#                     db.close()
-
-#         else:
-#             return jsonify({'error': 'Invalid file type'}), 400
-
-#     except Exception as e:
-#         print('Error:', e)
-#         return jsonify({'error': 'Internal Server Error'}), 500
 
 
 @app.route('/api/delete_friendships/<int:user1_id>/<int:user2_id>', methods=['DELETE'])
@@ -774,56 +679,201 @@ def update_user_info(user_id):
             db.close()
 
 
-# @app.route('/api/posts/<int:post_id>/like', methods=['POST'])
-# def like_post(post_id):
-#     try:
-#         # Connect to the MySQL database
-#         conn = mysql.connector.connect(**mysql_config)
-#         cursor = conn.cursor()
+@app.route('/api/posts/<int:post_id>/<int:user_id>/like', methods=['POST'])
+def like_post(post_id, user_id):
+    try:
+        # Connect to the database
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
 
-#         # Update the number of likes for the post
-#         cursor.execute("UPDATE likes SET number_of_likes = number_of_likes + 1 WHERE post_id = %s", (post_id,))
-#         conn.commit()
+        # Check if the user has already liked the post
+        cursor.execute("SELECT * FROM user_likes WHERE user_id = %s AND post_id = %s", (user_id, post_id))
+        user_like = cursor.fetchone()
 
-#         # Fetch the updated number of likes
-#         cursor.execute("SELECT number_of_likes FROM likes WHERE post_id = %s", (post_id,))
-#         result = cursor.fetchone()
+        if user_like:
+            # User has already liked the post, unlike it
+            cursor.execute("DELETE FROM user_likes WHERE user_id = %s AND post_id = %s", (user_id, post_id))
+            cursor.execute("UPDATE posts SET likes = likes - 1 WHERE id = %s", (post_id,))
+            cursor.execute("SELECT * FROM posts WHERE id=%s", (post_id,))
+            result = cursor.fetchone()[5];
+            connection.commit()
+            return jsonify({"liked": False, "likes": result}), 200
+        else:
+            # User hasn't liked the post yet, like it
+            cursor.execute("INSERT INTO user_likes (user_id, post_id) VALUES (%s, %s)", (user_id, post_id))
+            cursor.execute("UPDATE posts SET likes = likes + 1 WHERE id = %s", (post_id,))
+            cursor.execute("SELECT * FROM posts WHERE id=%s", (post_id,))
+            result = cursor.fetchone()[5];
+            connection.commit()
+            return jsonify({"liked": True, "likes": result}), 200
 
-#         if result:
-#             likes = result[0]
-#             return jsonify({'likes': likes})
-#         else:
-#             return jsonify({'error': 'Post not found'}), 404
+    except Exception as e:
+        print(e)
+        connection.rollback()
+        return jsonify({"error": "Failed to toggle like"}), 500
 
-#     except Exception as e:
-#         return jsonify({'error': str(e)}), 500
-
-#     finally:
-#         # Close the database connection
-#         conn.close()
+    finally:
+        cursor.close()
+        connection.close()
 
 
-@app.route('/api/posts/<int:post_id>/like', methods=['POST'])
-def like_post(post_id):
+
+@app.route('/api/posts/<int:post_id>/like-status/<int:user_id>', methods=['GET'])
+def is_liked(post_id, user_id):
+    try:
+        # Connect to the database
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
+
+        # Check if the user has already liked the post
+        cursor.execute("SELECT * FROM user_likes WHERE user_id = %s AND post_id = %s", (user_id, post_id))
+        user_like = cursor.fetchone()
+
+        if user_like:
+            connection.commit()
+            return jsonify({"liked": True}), 200
+        else:
+            connection.commit()
+            return jsonify({"liked": False}), 200
+
+    except Exception as e:
+        print(e)
+        connection.rollback()
+        return jsonify({"error": "Failed to toggle like"}), 500
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+@app.route('/api/update_user_event', methods=['POST'])
+def update_user_event():
+
+    data = request.get_json()
+
+    user_id = data.get('user_id')
+    event_id = data.get('event_id')
+    add_relation = data.get('add_relation', False)
+
     try:
         connection = mysql.connector.connect(**db_config)
         cursor = connection.cursor()
-        print(post_id)
-        cursor.execute("UPDATE posts SET likes = likes + 1 WHERE id = %s", (post_id,))
-        connection.commit();
+        
+        if add_relation:
+            query = "INSERT INTO user_event (user_id, event_id) VALUES (%s, %s)"
+            cursor.execute(query, (user_id, event_id))
+            connection.commit()
+            return jsonify({'message': 'User event added successfully'}), 200
 
-        cursor.execute("SELECT * FROM posts WHERE id = %s", (post_id,))
-        post_info = cursor.fetchone()
-        connection.close()
-
-        if post_info:
-            return jsonify({
-                'likes': post_info[5]
-            })
-
-        return jsonify({'success': False}), 500
+        # If add_relation is False, delete the user-event relationship
+        query = "DELETE FROM user_event WHERE user_id = %s AND event_id = %s"
+        cursor.execute(query, (user_id, event_id))
+        cursor.close()
+        connection.commit()
+        return jsonify({'message': 'User event deleted successfully'}), 200
+    
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+# @app.route('/api/user_events/<int:user_id>', methods=['GET'])
+# def fetch_user_events(user_id):
+#     try:
+#         connection = mysql.connector.connect(**db_config)
+#         cursor = connection.cursor()
+#         # Fetch the event_ids for the given user_id
+#         query = "SELECT event_id FROM user_event WHERE user_id = %s"
+#         cursor.execute(query, (user_id,))
+#         event_ids = cursor.fetchall()
+#         # Convert the list of dictionaries to a list of integers
+#         print(event_ids);
+#         event_ids = [event['event_id'] for event in event_ids]
+#         print(event_ids)
+#         event_ids = tuple(event_ids);
+#         print(event_ids);
+#         # Fetch user-specific events
+#         query = "SELECT * FROM event WHERE id IN %s"
+#         cursor.execute(query, (tuple(event_ids),))
+#         user_events = cursor.fetchall()
+#         print(user_events)
+#         event_list = []
+        
+#         for event in user_events:
+#             event_dict = {
+#                 'id': event['id'],
+#                 'user_id': event['user_id'],
+#                 'user_name': event['user_name'],
+#                 'description': event['description'],
+#                 'time': event['time'].strftime('%Y-%m-%d %H:%M:%S') if event['time'] else None,
+#                 'location': event['location']
+#             }
+#             event_list.append(event_dict)
+        
+#         print(event_list)
+#         return event_list
+
+#     except Exception as e:
+#         print(f'Error fetching user events: {e}')
+#         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/user_events/<int:user_id>', methods=['GET'])
+def get_user_events(user_id):
+    try:
+        connection = mysql.connector.connect(**db_config)
+        cursor = connection.cursor()
+
+        # Fetch event_ids from user_event table
+        query = "SELECT event_id FROM user_event WHERE user_id = %s"
+        cursor.execute(query, (user_id,))
+        user_event_ids = [event[0] for event in cursor.fetchall()]
+        
+        user_event_ids_tuple = tuple(user_event_ids);            
+        #cursor.execute('SELECT * FROM event WHERE id IN %s', user_event_ids_tuple)
+        #cursor.execute('SELECT * FROM event WHERE id IN (2,3,4)')
+        cursor.execute('SELECT * FROM event WHERE id IN (%s)' % ', '.join(['%s'] * len(user_event_ids)), user_event_ids)
+
+
+        user_events = cursor.fetchall()
+        connection.commit()
+        return jsonify(user_events), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if connection:
+            connection.close()
+
+
+
+@app.route('/create_post', methods=['POST'])
+def create_post():
+    try:
+            connection = mysql.connector.connect(**db_config)
+            cursor = connection.cursor()
+            image_path = request.form.get('image_path')
+            location = request.form.get('location')
+            user_id = int(request.form.get('user_id'))
+            likes = int(request.form.get('likes'))
+
+            cursor.execute('SELECT nickname FROM users WHERE id = %s', (user_id, ))
+
+            data = cursor.fetchone()
+            print(data)
+            username = data[0]
+            
+            print(username)
+            cursor.execute("INSERT INTO posts (username, image_path, location, user_id, likes) VALUES (%s, %s, %s, %s, %s)", (username, image_path, location, user_id, likes))
+            connection.commit()
+
+            return jsonify({'message': 'Post created successfully'}), 200
+
+
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)
