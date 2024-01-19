@@ -28,6 +28,7 @@ class Post {
   });
 }
 
+
 Future<List<Post>> fetchPosts() async {
   try {
     final response = await http.get(Uri.parse('http://10.0.2.2:5000/api/posts'));
@@ -174,6 +175,195 @@ Navigator.pushReplacement(
   }
 }
 
+
+
+class InstagramPostWidget extends StatefulWidget {
+  final String username;
+  final String location;
+  final ImageProvider postImage;
+  final int userId;
+  final int postId;
+  int likes; // Add likes property
+
+  InstagramPostWidget({
+    required this.username,
+    required this.location,
+    required this.postImage,
+    required this.userId,
+    required this.postId,
+    required this.likes,
+  });
+
+  @override
+  _InstagramPostWidgetState createState() => _InstagramPostWidgetState();
+}
+
+class _InstagramPostWidgetState extends State<InstagramPostWidget> {
+  bool isLiked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Call the API to get the like status when the widget is initialized
+    fetchLikeStatus();
+  }
+
+  Future<void> fetchLikeStatus() async {
+    try {
+      final response = await http.get(
+        Uri.parse('http://10.0.2.2:5000/api/posts/${widget.postId}/like-status/${UserAuth.userId}'),
+      );
+
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        setState(() {
+          isLiked = data['liked'];
+        });
+      } else {
+        print('Failed to fetch like status. Status code: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching like status: $e');
+    }
+  }
+
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15.0),
+      ),
+      elevation: 5,
+      margin: EdgeInsets.all(8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          ListTile(
+            leading: CircleAvatar(
+              child: Text(widget.username.substring(0, 1)),
+            ),
+            title: GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => UserProfilePage(userId: widget.userId),
+                  ),
+                );
+              },
+              child: Text(widget.username),
+            ),
+            subtitle: Text(widget.location),
+          ),
+          ClipRRect(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(15.0)),
+            child: Image(image: widget.postImage, fit: BoxFit.cover),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: <Widget>[
+              Row(
+                children: [
+                  IconButton(
+                      icon: Container(
+                        width: 50,
+                        height: 50,
+                        child: Image.asset(
+                          isLiked ? 'assets/paw_pink.png' : 'assets/paw_black.png',
+                        ),
+                      ),
+                      onPressed: () async {
+                        // Send a POST request to like or unlike the post
+                        final response = await http.post(Uri.parse('http://10.0.2.2:5000/api/posts/${widget.postId}/${UserAuth.userId}/like'));
+                        if (response.statusCode == 200) {
+                          print("111111111111111111111111111111111111111111111111111111111111");
+                          final Map<String, dynamic> data = json.decode(response.body);
+                          setState(() {
+                            // Update isLiked and likes based on the server response
+                            isLiked = data['liked'];
+                            widget.likes = data['likes'];
+                          });
+                        } else {
+                          print('Failed to like or unlike the post. Status code: ${response.statusCode}');
+                        }
+                      },
+                    ),
+                  Text('${widget.likes} likes'),
+                ],
+              ),
+              IconButton(
+                icon: Icon(Icons.comment),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => PostCommentsPage(postId: widget.postId),
+                    ),
+                  );
+                },
+              ),
+              IconButton(
+                icon: Icon(Icons.share),
+                onPressed: () {
+                  // Share button action
+                },
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class CustomBottomNavigationBar extends StatelessWidget {
+  final VoidCallback onHomePressed;
+  final VoidCallback onMapPressed;
+  final VoidCallback onNotificationsPressed;
+
+  CustomBottomNavigationBar({
+    required this.onHomePressed,
+    required this.onMapPressed,
+    required this.onNotificationsPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return BottomNavigationBar(
+      items: [
+        BottomNavigationBarItem(
+          icon: Icon(Icons.home),
+          label: 'Home',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.map),
+          label: 'Map',
+        ),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.notifications),
+          label: 'Events',
+        ),
+      ],
+      onTap: (index) {
+        switch (index) {
+          case 0:
+            onHomePressed();
+            break;
+          case 1:
+            onMapPressed();
+            break;
+          case 2:
+            onNotificationsPressed();
+            break;
+        }
+      },
+    );
+  }
+}
+
+
 // class InstagramPostWidget extends StatefulWidget {
 //   final String username;
 //   final String location;
@@ -272,163 +462,4 @@ Navigator.pushReplacement(
 //     );
 //   }
 // }
-
-class InstagramPostWidget extends StatefulWidget {
-  final String username;
-  final String location;
-  final ImageProvider postImage;
-  final int userId;
-  final int postId;
-  int likes; // Add likes property
-
-  InstagramPostWidget({
-    required this.username,
-    required this.location,
-    required this.postImage,
-    required this.userId,
-    required this.postId,
-    required this.likes,
-  });
-
-  @override
-  _InstagramPostWidgetState createState() => _InstagramPostWidgetState();
-}
-
-class _InstagramPostWidgetState extends State<InstagramPostWidget> {
-  bool isLiked = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(15.0),
-      ),
-      elevation: 5,
-      margin: EdgeInsets.all(8.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          ListTile(
-            leading: CircleAvatar(
-              child: Text(widget.username.substring(0, 1)),
-            ),
-            title: GestureDetector(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => UserProfilePage(userId: widget.userId),
-                  ),
-                );
-              },
-              child: Text(widget.username),
-            ),
-            subtitle: Text(widget.location),
-          ),
-          ClipRRect(
-            borderRadius: BorderRadius.vertical(top: Radius.circular(15.0)),
-            child: Image(image: widget.postImage, fit: BoxFit.cover),
-          ),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: <Widget>[
-              Row(
-                children: [
-                  IconButton(
-                    icon: Container(
-                      width: 50,
-                      height: 50,
-                      child: Image.asset(
-                        isLiked ? 'assets/paw_black.png' : 'assets/paw_pink.png',
-                      ),
-                    ),
-                    onPressed: () async {
-                      // Send a POST request to like the post
-                      final response =
-                          await http.post(Uri.parse('http://10.0.2.2:5000/api/posts/${widget.postId}/like'));
-
-                      if (response.statusCode == 200) {
-                        final Map<String, dynamic> data = json.decode(response.body);
-                        setState(() {
-                          widget.likes = data['likes'];
-                          isLiked = !isLiked;
-                        });
-                      } else {
-                        print('Failed to like the post. Status code: ${response.statusCode}');
-                      }
-                    },
-                  ),
-                  Text('${widget.likes} likes'),
-                ],
-              ),
-              IconButton(
-                icon: Icon(Icons.comment),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => PostCommentsPage(postId: widget.postId),
-                    ),
-                  );
-                },
-              ),
-              IconButton(
-                icon: Icon(Icons.share),
-                onPressed: () {
-                  // Share button action
-                },
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-
-class CustomBottomNavigationBar extends StatelessWidget {
-  final VoidCallback onHomePressed;
-  final VoidCallback onMapPressed;
-  final VoidCallback onNotificationsPressed;
-
-  CustomBottomNavigationBar({
-    required this.onHomePressed,
-    required this.onMapPressed,
-    required this.onNotificationsPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      items: [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.map),
-          label: 'Map',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.notifications),
-          label: 'Events',
-        ),
-      ],
-      onTap: (index) {
-        switch (index) {
-          case 0:
-            onHomePressed();
-            break;
-          case 1:
-            onMapPressed();
-            break;
-          case 2:
-            onNotificationsPressed();
-            break;
-        }
-      },
-    );
-  }
-}
 
